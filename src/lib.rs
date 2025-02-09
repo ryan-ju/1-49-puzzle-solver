@@ -299,9 +299,8 @@ fn is_x(coord: Coordinate) -> bool {
 }
 
 fn number_to_coordinate(number: u8) -> Coordinate {
-    let x: usize = (number as usize % 7) * 2;
-    let y: usize = (number as usize / 7 + 1) * 2;
-    (x, y)
+    let n = (number - 1) as usize;
+    ((n % 7 + 1) * 2, (n / 7 + 1) * 2)
 }
 
 pub struct BoardState {
@@ -456,6 +455,7 @@ mod test {
     fn test_number_to_coordinate() {
         assert_eq!(number_to_coordinate(1), (2, 2));
         assert_eq!(number_to_coordinate(10), (6, 4));
+        assert_eq!(number_to_coordinate(49), (14, 14));
     }
 
     #[test]

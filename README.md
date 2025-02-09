@@ -4,9 +4,11 @@ Solver for the puzzle https://cruxpuzzles.co.uk/products/1-49-new
 
 ![](./docs/image.png)
 
-In code, the pieces are represent using hex (so 10 is `a`, 11 is `b` etc)
+In code, the pieces are represent using hex (so 10 is `a`, 11 is `b` etc).
 
 The `0` piece is the "teeth" of the board edge.
+
+It is assumed that the pieces can be rotated and flipped.
 
 Note currently this returns the first solution, instead of all solutions (as finding all solutions can take a lot
 longer).
