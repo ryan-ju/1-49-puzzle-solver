@@ -266,9 +266,10 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
     }
 }
 
+// The board's teeth piece.  Obviously there's only one variant.
 pub static PIECE_ZERO: LazyLock<Piece> = LazyLock::new(|| extract_piece_from_board('0', true));
 
-// This includes PIECE_ZERO and the target piece.
+// This excludes PIECE_ZERO.
 pub static PIECES_OTHER: LazyLock<Vec<Piece>> = LazyLock::new(|| {
     PIECE_NAMES
         .iter()
