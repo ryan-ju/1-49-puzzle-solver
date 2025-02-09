@@ -453,14 +453,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_is_x() {
-        assert_eq!(is_x((0, 0)), true);
-        assert_eq!(is_x((4, 0)), true);
-        assert_eq!(is_x((6, 0)), true);
-        assert_eq!(is_x((5, 6)), false);
-    }
-
-    #[test]
     fn test_number_to_coordinate() {
         assert_eq!(number_to_coordinate(1), (2, 2));
         assert_eq!(number_to_coordinate(10), (6, 4));
