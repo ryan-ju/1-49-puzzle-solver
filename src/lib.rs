@@ -62,6 +62,7 @@ pub enum Rotation {
 }
 
 impl Rotation {
+    // Maps the input coordinates to the output coordinates.
     // Input and output are both (x, y, width, height)
     fn transform(&self, input: (usize, usize, usize, usize)) -> (usize, usize, usize, usize) {
         let (x, y, w, h) = input;
@@ -96,6 +97,8 @@ pub fn flip(input: (usize, usize, usize)) -> (usize, usize) {
 pub struct Sprite {
     // true if the cell is non-empty
     value: Vec<Vec<bool>>,
+    // Array coordinates that are non-empty.  This should improve performance.
+    value_coordinates: Vec<Coordinate>,
     // The index of the first non-empty cell in the first row
     top_left: usize,
     rotation: &'static Rotation,
@@ -153,13 +156,14 @@ fn create_new_variant(
     value: &Vec<Vec<bool>>,
     rotation: &Rotation,
     flipped: bool,
-) -> (Vec<Vec<bool>>, usize) {
+) -> (Vec<Vec<bool>>, Vec<Coordinate>, usize) {
     let w = value[0].len();
     let h = value.len();
 
     let mut top_left: usize = usize::MAX;
     let (w_new, h_new) = rotation.transform_size((w, h));
     let mut value_new: Vec<Vec<bool>> = vec![vec![false; w_new]; h_new];
+    let mut value_coordinates: Vec<Coordinate> = vec![];
     for i in 0..w {
         for j in 0..h {
             let (i_new, j_new, _, _) = rotation.transform((i, j, w, h));
@@ -173,10 +177,13 @@ fn create_new_variant(
             if v && j_new == 0 && i_new < top_left {
                 top_left = i_new;
             }
+            if v {
+                value_coordinates.push((i_new, j_new));
+            }
         }
     }
 
-    (value_new, top_left)
+    (value_new, value_coordinates, top_left)
 }
 
 pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
@@ -214,13 +221,19 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
 
     // Extract the sprite
     let mut value: Vec<Vec<bool>> = vec![];
-    for i in bound.top..bound.bottom {
+    let mut value_coordinates: Vec<Coordinate> = vec![];
+    for j in bound.top..bound.bottom {
         value.push(
-            BOARD[i][bound.left..bound.right]
+            BOARD[j][bound.left..bound.right]
                 .chars()
                 .map(|c| c == idx)
                 .collect(),
         );
+        for (i, c) in BOARD[j][bound.left..bound.right].chars().enumerate() {
+            if c == idx {
+                value_coordinates.push((i, j));
+            }
+        }
     }
 
     let color = PIECE_COLORS[PIECE_NAMES.iter().position(|&c| c == idx).unwrap()];
@@ -231,6 +244,7 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
             color,
             variants: vec![Sprite {
                 value,
+                value_coordinates,
                 top_left: 0,
                 rotation: &ROTATIONS[0],
                 flipped: false,
@@ -242,7 +256,8 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
     let mut variants: Vec<Sprite> = vec![];
     for rotation in ROTATIONS.iter() {
         'outer: for flipped in vec![false, true] {
-            let (value_new, top_left) = create_new_variant(&value, rotation, flipped);
+            let (value_new, value_coordinates, top_left) =
+                create_new_variant(&value, rotation, flipped);
 
             for variant in &variants {
                 if eq_sprites(&value_new, &variant.value) {
@@ -252,6 +267,7 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
 
             variants.push(Sprite {
                 value: value_new,
+                value_coordinates,
                 top_left,
                 rotation,
                 flipped,
@@ -294,11 +310,6 @@ pub struct BoardPiece {
     pub anchor: Coordinate,
 }
 
-fn is_x(coord: Coordinate) -> bool {
-    let (x, y) = coord;
-    BOARD[usize::from(y)].chars().nth(usize::from(x)).unwrap() == 'x'
-}
-
 fn number_to_coordinate(number: u8) -> Coordinate {
     let n = (number - 1) as usize;
     ((n % 7 + 1) * 2, (n / 7 + 1) * 2)
@@ -318,7 +329,7 @@ impl fmt::Display for BoardState {
             for cell in row {
                 write!(
                     f,
-                    "{}",
+                    "{} ",
                     if *cell == 'x' || *cell == '.' {
                         cell.to_string().black()
                     } else {
@@ -364,7 +375,7 @@ impl BoardState {
                 // Note this excludes the 0th and the last piece (i.e., the target piece)
                 pieces_to_place: (1..=12).map(|x| PIECE_NAMES[x]).collect(),
             }
-            .place_piece(target_piece, i, true))
+            .place_piece(target_piece, i))
             {
                 result.push(board_state);
             }
@@ -377,29 +388,13 @@ impl BoardState {
         &self,
         piece: &'static Piece,
         variant_index: usize,
-        // Whether we're adding the target piece.  This is used for computing the next anchor.
-        is_target_piece: bool,
     ) -> Result<BoardState, ()> {
         let sprite: &Sprite = &piece.variants[variant_index];
 
         let mut state_new = self.state.clone();
 
-        for j in 0..sprite.value.len() {
-            for i in 0..sprite.value[j].len() {
-                if sprite.value[j][i] {
-                    if self.anchor.0 + i < sprite.top_left {
-                        // The piece is out of the board
-                        return Err(());
-                    }
-                    let x = self.anchor.0 + i - sprite.top_left;
-                    let y = self.anchor.1 + j;
-                    if x >= SIZE || y >= SIZE || self.state[y][x] != '.' {
-                        // The piece cannot be put on the board
-                        return Err(());
-                    }
-                    state_new[y][x] = piece.name;
-                }
-            }
+        if self.detect_overlap(&mut state_new, piece.name, sprite) {
+            return Err(());
         }
 
         let mut pieces_new = self.pieces.clone();
@@ -446,6 +441,93 @@ impl BoardState {
             pieces_to_place: pieces_to_place_new,
         })
     }
+
+    #[cfg(not(feature = "fast"))]
+    fn detect_overlap(
+        &self,
+        state: &mut Vec<Vec<char>>,
+        piece_name: char,
+        sprite: &Sprite,
+    ) -> bool {
+        for j in 0..sprite.value.len() {
+            for i in 0..sprite.value[j].len() {
+                if sprite.value[j][i] {
+                    let new_x = self.anchor.0 + i;
+                    if new_x < sprite.top_left {
+                        return true;
+                    }
+                    let x = self.anchor.0 + i - sprite.top_left;
+                    let y = self.anchor.1 + j;
+                    if x >= SIZE || y >= SIZE || self.state[y][x] != '.' {
+                        return true;
+                    }
+                    state[y][x] = piece_name;
+                }
+            }
+        }
+        false
+    }
+
+    #[cfg(feature = "fast")]
+    fn detect_overlap(
+        &self,
+        state: &mut Vec<Vec<char>>,
+        piece_name: char,
+        sprite: &Sprite,
+    ) -> bool {
+        // This should run faster, as we don't check the empty cells in the sprite
+        for (i, j) in &sprite.value_coordinates {
+            let new_x = self.anchor.0 + i;
+            if new_x < sprite.top_left {
+                return true;
+            }
+            let x = self.anchor.0 + i - sprite.top_left;
+            let y = self.anchor.1 + j;
+            if x >= SIZE || y >= SIZE || self.state[y][x] != '.' {
+                return true;
+            }
+            state[y][x] = piece_name;
+        }
+        false
+    }
+}
+
+// To log after this many states are computed
+const LOG_FREQUENCY: u64 = 100000;
+
+pub fn solve(target: u8) {
+    let mut states = BoardState::new(target);
+
+    let mut counter: u64 = 0;
+
+    while !states.is_empty() {
+        let state: &BoardState = &(states.pop().unwrap());
+        if state.pieces_to_place.is_empty() {
+            println!("Solution found:");
+            println!("{}", state);
+            return;
+        }
+
+        for piece_index in state.pieces_to_place.iter() {
+            let piece = PIECE_MAP[piece_index];
+            for i in 0..piece.variants.len() {
+                if let Ok(new_state) = state.place_piece(piece, i) {
+                    states.push(new_state);
+                    counter += 1;
+
+                    if counter % LOG_FREQUENCY == 0 {
+                        println!(
+                            "# states searched: {}, stack size: {}",
+                            counter,
+                            states.len()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    println!("No solution found");
 }
 
 #[cfg(test)]
@@ -467,7 +549,7 @@ mod test {
     #[test]
     fn test_create_new_variant() {
         let value: &Vec<Vec<bool>> = &PIECE_MAP[&'d'].variants[0].value;
-        let (value_new, _) = create_new_variant(&value, &Rotation::R90, false);
+        let (value_new, _, _) = create_new_variant(&value, &Rotation::R90, false);
 
         assert_eq!(eq_sprites(value, &value_new), true);
     }
