@@ -38,7 +38,7 @@ with that coordinate, then computes whether the piece can be placed.
 
 # Improvements
 
-* I implemented a after overlap check function.  
+* I implemented a faster overlap check function.  
   * Command: `RUSTFLAGS=-Awarnings cargo run --bin solver -F fast -- -t 46`
 * To run faster, enable the `release` profile.  This improves the performance a lot.
   * Command: `RUSTFLAGS=-Awarnings cargo run --profile release --bin solver -F fast -- -t 46`
