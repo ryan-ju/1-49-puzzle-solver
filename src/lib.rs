@@ -500,6 +500,7 @@ pub fn solve(target: u8) {
 
     let mut counter: u64 = 0;
 
+    // Depth-first search algorithm
     while !states.is_empty() {
         let state: &BoardState = &(states.pop().unwrap());
         if state.pieces_to_place.is_empty() {
