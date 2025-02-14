@@ -11,8 +11,12 @@ colored = "3.0.0"
 criterion = { version = "0.5" }
 
 [features]
+default = ["fast"]
 fast = []
 
 [[bench]]
 name = "example"
 harness = false
+
+[lints.clippy]
+result_unit_err = "allow"

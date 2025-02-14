@@ -1,5 +1,5 @@
 use clap::{arg, command, value_parser};
-use one_forty_nine_solver::{solve};
+use one_forty_nine_solver::solve;
 
 fn main() {
     let matches = command!() // requires `cargo` feature
@@ -7,15 +7,15 @@ fn main() {
             arg!(
                 -t --target <NUMBER> "Set the target number"
             )
-                // We don't have syntax yet for optional options, so manually calling `required`
-                .required(true)
-                .value_parser(value_parser!(u8)),
+            // We don't have syntax yet for optional options, so manually calling `required`
+            .required(true)
+            .value_parser(value_parser!(u8)),
         )
         .get_matches();
 
     let target: &u8 = matches.get_one::<u8>("target").unwrap();
     if *target > 49 {
-        println!()
+        panic!("Target number must be less than or equal to 49");
     }
 
     use std::time::Instant;

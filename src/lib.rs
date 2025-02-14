@@ -1,7 +1,7 @@
 use colored::{Color, Colorize};
 use core::fmt;
 use std::collections::HashMap;
-use std::{rc::Rc, sync::LazyLock, u8, usize};
+use std::{rc::Rc, sync::LazyLock};
 
 pub fn run() {
     println!("Hello, world!");
@@ -105,7 +105,7 @@ pub struct Sprite {
     flipped: bool, // Flip is applied after rotation
 }
 
-pub fn eq_sprites(a: &Vec<Vec<bool>>, b: &Vec<Vec<bool>>) -> bool {
+pub fn eq_sprites(a: &[Vec<bool>], b: &[Vec<bool>]) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -125,10 +125,10 @@ pub struct Piece {
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, variant) in self.variants.iter().enumerate() {
-            write!(f, "Variant: {}\n", i)?;
-            write!(
+            writeln!(f, "Variant: {}", i)?;
+            writeln!(
                 f,
-                "Rotation: {:?}, flipped: {}, top-left: {}\n",
+                "Rotation: {:?}, flipped: {}, top-left: {}",
                 variant.rotation, variant.flipped, variant.top_left
             )?;
             for row in &variant.value {
@@ -143,9 +143,10 @@ impl fmt::Display for Piece {
                         }
                     )?;
                 }
-                write!(f, "\n")?;
+                writeln!(f)?;
             }
-            write!(f, "\n\n")?;
+            writeln!(f)?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -153,7 +154,7 @@ impl fmt::Display for Piece {
 }
 
 fn create_new_variant(
-    value: &Vec<Vec<bool>>,
+    value: &[Vec<bool>],
     rotation: &Rotation,
     flipped: bool,
 ) -> (Vec<Vec<bool>>, Vec<Coordinate>, usize) {
@@ -165,14 +166,14 @@ fn create_new_variant(
     let mut value_new: Vec<Vec<bool>> = vec![vec![false; w_new]; h_new];
     let mut value_coordinates: Vec<Coordinate> = vec![];
     for i in 0..w {
-        for j in 0..h {
+        for (j, row) in value.iter().enumerate() {
             let (i_new, j_new, _, _) = rotation.transform((i, j, w, h));
             let (i_new, j_new) = if flipped {
                 flip((i_new, j_new, w_new))
             } else {
                 (i_new, j_new)
             };
-            let v = value[j][i];
+            let v = row[i];
             value_new[j_new][i_new] = v;
             if v && j_new == 0 && i_new < top_left {
                 top_left = i_new;
@@ -222,14 +223,14 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
     // Extract the sprite
     let mut value: Vec<Vec<bool>> = vec![];
     let mut value_coordinates: Vec<Coordinate> = vec![];
-    for j in bound.top..bound.bottom {
+    for (j, row) in BOARD.iter().enumerate().take(bound.bottom).skip(bound.top) {
         value.push(
-            BOARD[j][bound.left..bound.right]
+            row[bound.left..bound.right]
                 .chars()
                 .map(|c| c == idx)
                 .collect(),
         );
-        for (i, c) in BOARD[j][bound.left..bound.right].chars().enumerate() {
+        for (i, c) in row[bound.left..bound.right].chars().enumerate() {
             if c == idx {
                 value_coordinates.push((i, j));
             }
@@ -255,7 +256,7 @@ pub fn extract_piece_from_board(idx: char, no_variants: bool) -> Piece {
     // Create the variants
     let mut variants: Vec<Sprite> = vec![];
     for rotation in ROTATIONS.iter() {
-        'outer: for flipped in vec![false, true] {
+        'outer: for flipped in [false, true] {
             let (value_new, value_coordinates, top_left) =
                 create_new_variant(&value, rotation, flipped);
 
@@ -337,7 +338,7 @@ impl fmt::Display for BoardState {
                     }
                 )?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -400,7 +401,7 @@ impl BoardState {
         let mut pieces_new = self.pieces.clone();
         pieces_new.push(Rc::new(BoardPiece {
             name: piece.name,
-            sprite: sprite,
+            sprite,
             anchor: self.anchor,
         }));
 
@@ -469,12 +470,7 @@ impl BoardState {
     }
 
     #[cfg(feature = "fast")]
-    fn detect_overlap(
-        &self,
-        state: &mut Vec<Vec<char>>,
-        piece_name: char,
-        sprite: &Sprite,
-    ) -> bool {
+    fn detect_overlap(&self, state: &mut [Vec<char>], piece_name: char, sprite: &Sprite) -> bool {
         // This should run faster, as we don't check the empty cells in the sprite
         for (i, j) in &sprite.value_coordinates {
             let new_x = self.anchor.0 + i;
