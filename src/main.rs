@@ -7,9 +7,9 @@ fn main() {
             arg!(
                 -t --target <NUMBER> "Set the target number"
             )
-            // We don't have syntax yet for optional options, so manually calling `required`
-            .required(true)
-            .value_parser(value_parser!(u8)),
+                // We don't have syntax yet for optional options, so manually calling `required`
+                .required(true)
+                .value_parser(value_parser!(u8)),
         )
         .get_matches();
 

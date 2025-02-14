@@ -14,7 +14,7 @@ builds:
     # Can be a path (e.g. `bin/app`) to wrap the binary in a directory.
     #
     # Default: Project directory name.
-    binary: 'bin/solver'
+#    binary: 'bin/solver'
 
     # List of targets to be built, in Rust's format.
     # Default: [ "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin" ]
@@ -27,7 +27,7 @@ builds:
     # This is the working directory for the Zig build command(s).
     #
     # Default: '.'.
-    dir: './src/bin'
+#    dir: './src/bin/solver'
 
     # Set a specific zig binary to use when building.
     # It is safe to ignore this option in most cases.
@@ -48,8 +48,8 @@ builds:
     #
     # Templates: allowed.
     # Default: "--release".
-    flags:
-      - --release
+#    flags:
+#      - --release
 #      - -p=subproject # when using cargo-workspaces
 
     # Custom environment variables to be set during the builds.
@@ -70,9 +70,24 @@ builds:
 
     # If true, skip the build.
     # Useful for library projects.
-    skip: false
+#    skip: false
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
 brews:
   - repository:
       owner: ryan-ju
       name: homebrew-homebrew
+    description: Example rust release
+    license: MIT
     directory: Formula
