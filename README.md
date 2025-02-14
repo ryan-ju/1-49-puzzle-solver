@@ -95,5 +95,6 @@ goreleaser release --snapshot --clean
 ```bash
 # Must tag it first
 git tag v0.0.12
-goreleaser release
+# Need to get a GitHub personal access token to publish to homebrew tap
+GITHUB_TOKEN=xxx goreleaser release
 ```
